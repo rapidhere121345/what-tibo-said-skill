@@ -57,6 +57,11 @@ test("MCP handshake exposes all tools and preview remains dry-run", async () => 
     assert.match(payload.text ?? "", /^@tibo\b/);
     assert.match(payload.text ?? "", /Reset: 3d 8h left/);
     assert.match(payload.text ?? "", /gpt-5\.6-sol · linux\/x64/);
+    assert.match(payload.text ?? "", /Sent by https:\/\/github\.com\//);
+    assert.match(
+      payload.text ?? "",
+      /what-tibo-said-skill — triggered when Codex quota runs out\.$/,
+    );
     assert.doesNotMatch(payload.text ?? "", /Asia|Shanghai|GMT|UTC|20:24/i);
   } finally {
     await client.close();

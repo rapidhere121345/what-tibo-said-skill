@@ -1,3 +1,5 @@
+import type { XOAuthCredentials } from "./types.js";
+
 export type FetchLike = (
   input: string | URL | Request,
   init?: RequestInit,
@@ -13,6 +15,13 @@ export interface XPostClientOptions {
   timeoutMs: number;
   fetchImpl?: FetchLike;
 }
+
+export interface XOAuthTokenResult {
+  accessToken: string;
+  refreshToken?: string;
+}
+
+const X_OAUTH_TOKEN_ENDPOINT = "https://api.x.com/2/oauth2/token";
 
 export class XApiError extends Error {
   readonly status?: number;
@@ -40,8 +49,9 @@ function redactSensitive(value: string, secrets: readonly string[]): string {
 
   redacted = redacted
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
+    .replace(/Basic\s+[A-Za-z0-9+/=]+/gi, "Basic [REDACTED]")
     .replace(
-      /(["']?(?:access_)?token["']?\s*[:=]\s*["']?)[^"',\s}]+/gi,
+      /(["']?(?:access_token|refresh_token|client_secret|token)["']?\s*[:=]\s*["']?)[^"',&\s}]+/gi,
       "$1[REDACTED]",
     )
     .replace(/\s+/g, " ")
@@ -50,8 +60,8 @@ function redactSensitive(value: string, secrets: readonly string[]): string {
   return redacted.slice(0, 500);
 }
 
-function readApiDetail(rawBody: string, token: string): string {
-  const safeRaw = redactSensitive(rawBody, [token]);
+function readApiDetail(rawBody: string, secrets: readonly string[]): string {
+  const safeRaw = redactSensitive(rawBody, secrets);
   if (!safeRaw) {
     return "X returned an empty error response.";
   }
@@ -79,7 +89,7 @@ function readApiDetail(rawBody: string, token: string): string {
     }
 
     if (details.length > 0) {
-      return redactSensitive(details.join("; "), [token]);
+      return redactSensitive(details.join("; "), secrets);
     }
   } catch {
     // Fall back to the already-redacted response text.
@@ -141,7 +151,7 @@ export class XPostClient {
       }
 
       const retryAt = response.headers.get("x-rate-limit-reset") ?? undefined;
-      const detail = readApiDetail(rawBody, userAccessToken);
+      const detail = readApiDetail(rawBody, [userAccessToken]);
       const options: { status?: number; retryAt?: string } = { status: response.status };
       if (retryAt !== undefined) {
         options.retryAt = retryAt;
@@ -159,6 +169,83 @@ export class XPostClient {
           ? redactSensitive(error.message, [userAccessToken])
           : "Unknown network error";
       throw new XApiError("X create-post request failed: " + detail);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async refreshAccessToken(credentials: XOAuthCredentials): Promise<XOAuthTokenResult> {
+    const secrets = [
+      credentials.clientId,
+      credentials.clientSecret,
+      credentials.accessToken,
+      credentials.refreshToken,
+    ];
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const body = new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: credentials.refreshToken,
+      });
+      const basicCredentials = Buffer.from(
+        credentials.clientId + ":" + credentials.clientSecret,
+        "utf8",
+      ).toString("base64");
+      const response = await this.fetchImpl(X_OAUTH_TOKEN_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Authorization: "Basic " + basicCredentials,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: body.toString(),
+        signal: controller.signal,
+      });
+      const rawBody = await response.text();
+      if (response.status !== 200) {
+        throw new XApiError(
+          "X OAuth refresh request failed with HTTP " +
+            response.status +
+            ": " +
+            readApiDetail(rawBody, secrets),
+          { status: response.status },
+        );
+      }
+
+      let payload: unknown;
+      try {
+        payload = JSON.parse(rawBody) as unknown;
+      } catch {
+        throw new XApiError("X OAuth refresh returned invalid JSON.", {
+          status: response.status,
+        });
+      }
+      const record =
+        payload && typeof payload === "object" ? (payload as Record<string, unknown>) : undefined;
+      if (
+        !record ||
+        typeof record.access_token !== "string" ||
+        record.access_token.trim() === "" ||
+        (record.refresh_token !== undefined &&
+          (typeof record.refresh_token !== "string" || record.refresh_token.trim() === ""))
+      ) {
+        throw new XApiError("X OAuth refresh returned malformed token data.", {
+          status: response.status,
+        });
+      }
+      const result: XOAuthTokenResult = { accessToken: record.access_token };
+      if (typeof record.refresh_token === "string") {
+        result.refreshToken = record.refresh_token;
+      }
+      return result;
+    } catch (error) {
+      if (error instanceof XApiError) {
+        throw error;
+      }
+      const detail =
+        error instanceof Error ? redactSensitive(error.message, secrets) : "Unknown network error";
+      throw new XApiError("X OAuth refresh request failed: " + detail);
     } finally {
       clearTimeout(timeout);
     }

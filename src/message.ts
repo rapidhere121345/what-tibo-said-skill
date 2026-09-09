@@ -1,5 +1,10 @@
 const X_HANDLE_PATTERN = /^@?([A-Za-z0-9_]{1,15})$/;
 
+export const PROJECT_URL =
+  "https://github.com/rapidhere121345/what-tibo-said-skill";
+export const PROJECT_ATTRIBUTION =
+  "Sent by " + PROJECT_URL + " — triggered when Codex quota runs out.";
+
 export const DEFAULT_PLAYFUL_MESSAGES = [
   "@{handle} my Codex quota just hit the wall. Any chance you can wave the reset wand? 🪄",
   "@{handle} my tokens have gone on strike. Could you send in a quota reset? 🛠️",
@@ -36,12 +41,35 @@ export function buildPlayfulPost(
 
   const baseText = selected.replaceAll("{handle}", handle);
   const contextLine = publicContext.replace(/\s+/g, " ").trim();
-  const text = contextLine ? baseText + "\n" + contextLine : baseText;
+  if (/https?:\/\//i.test(baseText) || /https?:\/\//i.test(contextLine)) {
+    throw new Error("Only the fixed project URL is allowed in the generated post.");
+  }
+
+  const withoutContext = baseText + "\n\n" + PROJECT_ATTRIBUTION;
+  const availableContextLength = 280 - [...withoutContext].length - 1;
+  let fittedContext = "";
+  if (contextLine && availableContextLength > 0) {
+    const segments = contextLine.split(" · ").filter(Boolean);
+    const includedSegments: string[] = [];
+    for (const segment of segments) {
+      const candidate = [...includedSegments, segment].join(" · ");
+      if ([...candidate].length <= availableContextLength) {
+        includedSegments.push(segment);
+        fittedContext = candidate;
+      } else {
+        break;
+      }
+    }
+  }
+  const text = fittedContext
+    ? baseText + "\n" + fittedContext + "\n\n" + PROJECT_ATTRIBUTION
+    : withoutContext;
   if (!text.startsWith("@" + handle)) {
     throw new Error("The generated post must start by mentioning the configured handle.");
   }
-  if (/https?:\/\//i.test(text)) {
-    throw new Error("The generated post must not contain a URL.");
+  const urls = text.match(/https?:\/\/\S+/gi) ?? [];
+  if (urls.length !== 1 || urls[0] !== PROJECT_URL) {
+    throw new Error("The generated post must contain only the fixed project URL.");
   }
   if ([...text].length > 280) {
     throw new Error("The generated post exceeds 280 characters.");

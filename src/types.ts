@@ -6,6 +6,13 @@ export interface QuotaSignal {
   sessionId?: string | null;
 }
 
+export interface XOAuthCredentials {
+  clientId: string;
+  clientSecret: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
 export interface QuotaDetection {
   isQuotaExhausted: boolean;
   reason?: string;

@@ -8,8 +8,14 @@ import {
   type PublicContextOptions,
 } from "./public-context.js";
 import { StateStore } from "./state-store.js";
-import type { QuotaActionResult, QuotaDetection, QuotaSignal } from "./types.js";
-import { XApiError, XPostClient } from "./x-client.js";
+import type {
+  QuotaActionResult,
+  QuotaDetection,
+  QuotaSignal,
+  XOAuthCredentials,
+} from "./types.js";
+import { readXOAuthCredentials, writeXOAuthCredentials } from "./x-credentials.js";
+import { XApiError, XPostClient, type XPostResult } from "./x-client.js";
 
 export interface QuotaResetServiceOptions {
   config: AppConfig;
@@ -134,11 +140,12 @@ export class QuotaResetService {
       return preview;
     }
 
-    const token = this.config.xUserAccessToken;
-    if (!token) {
+    if (!this.config.xCredentialsFile && !this.config.xUserAccessToken) {
       return {
         status: "config_error",
-        detail: "X_USER_ACCESS_TOKEN is required when WHAT_TIBO_SAID_LIVE=1.",
+        detail:
+          "An X OAuth credentials file or X_USER_ACCESS_TOKEN is required when " +
+          "WHAT_TIBO_SAID_LIVE=1.",
       };
     }
 
@@ -168,7 +175,48 @@ export class QuotaResetService {
         }
 
         try {
-          const posted = await this.xClient.createPost(text, token);
+          let credentials: XOAuthCredentials | undefined;
+          if (this.config.xCredentialsFile) {
+            try {
+              credentials = await readXOAuthCredentials(this.config.xCredentialsFile);
+            } catch (error) {
+              return {
+                status: "config_error",
+                detail:
+                  error instanceof Error
+                    ? error.message
+                    : "Could not read X OAuth credentials.",
+              };
+            }
+          }
+          const token = credentials?.accessToken ?? this.config.xUserAccessToken;
+          if (!token) {
+            return {
+              status: "config_error",
+              detail:
+                "An X OAuth credentials file or X_USER_ACCESS_TOKEN is required when " +
+                "WHAT_TIBO_SAID_LIVE=1.",
+            };
+          }
+
+          let posted: XPostResult;
+          try {
+            posted = await this.xClient.createPost(text, token);
+          } catch (error) {
+            if (
+              !(error instanceof XApiError) ||
+              error.status !== 401 ||
+              !credentials ||
+              !this.config.xCredentialsFile
+            ) {
+              throw error;
+            }
+
+            const refreshed = await this.xClient.refreshAccessToken(credentials);
+            credentials = { ...credentials, ...refreshed };
+            await writeXOAuthCredentials(this.config.xCredentialsFile, credentials);
+            posted = await this.xClient.createPost(text, credentials.accessToken);
+          }
           await this.stateStore.write({
             version: 1,
             lastPostedAt: now.toISOString(),

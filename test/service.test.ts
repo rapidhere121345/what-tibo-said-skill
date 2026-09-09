@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -160,6 +160,11 @@ test("live mode publishes once and persists the successful cooldown", async () =
       assert.match(payload.text ?? "", /^@tibo\b/);
       assert.match(payload.text ?? "", /Reset: 4d 8h left/);
       assert.match(payload.text ?? "", /gpt-5\.6-sol · linux\/x64/);
+      assert.match(payload.text ?? "", /Sent by https:\/\/github\.com\//);
+      assert.match(
+        payload.text ?? "",
+        /what-tibo-said-skill — triggered when Codex quota runs out\.$/,
+      );
       return successfulResponse("123", payload.text);
     };
     const config = makeConfig(directory);
@@ -316,4 +321,226 @@ test("X client redacts credentials and exposes rate-limit reset", async () => {
       return true;
     },
   );
+});
+
+test("a create-post 401 refreshes, persists rotation, and retries exactly once", async () => {
+  await withTemporaryDirectory(async (directory) => {
+    const credentialsPath = join(directory, "x-oauth.json");
+    const original = {
+      clientId: "confidential-client",
+      clientSecret: "confidential-secret",
+      accessToken: "expired-access",
+      refreshToken: "old-refresh",
+    };
+    await writeFile(credentialsPath, JSON.stringify(original), { mode: 0o600 });
+    const requests: Array<{ input: string; init?: RequestInit }> = [];
+    const fetchImpl: FetchLike = async (input, init) => {
+      requests.push({ input: String(input), init });
+      if (requests.length === 1) {
+        return new Response(JSON.stringify({ detail: "expired" }), { status: 401 });
+      }
+      if (requests.length === 2) {
+        assert.equal(String(input), "https://api.x.com/2/oauth2/token");
+        const headers = init?.headers as Record<string, string>;
+        assert.equal(
+          headers.Authorization,
+          "Basic " + Buffer.from("confidential-client:confidential-secret").toString("base64"),
+        );
+        assert.equal(headers["Content-Type"], "application/x-www-form-urlencoded");
+        assert.equal(
+          String(init?.body),
+          "grant_type=refresh_token&refresh_token=old-refresh",
+        );
+        return new Response(
+          JSON.stringify({
+            access_token: "rotated-access",
+            refresh_token: "rotated-refresh",
+          }),
+          { status: 200 },
+        );
+      }
+      assert.equal(
+        (init?.headers as Record<string, string>).Authorization,
+        "Bearer rotated-access",
+      );
+      return successfulResponse("rotated-post");
+    };
+    const config = makeConfig(directory, {
+      xCredentialsFile: credentialsPath,
+      xUserAccessToken: "fallback-token",
+    });
+    const service = new QuotaResetService({
+      config,
+      xClient: new XPostClient({
+        endpoint: config.xEndpoint,
+        timeoutMs: config.requestTimeoutMs,
+        fetchImpl,
+      }),
+      random: () => 0,
+    });
+
+    const result = await service.handleQuotaSignal({ message: QUOTA_ERROR, model: "gpt-5.6-sol" });
+    assert.equal(result.status, "posted");
+    assert.equal(result.postId, "rotated-post");
+    assert.equal(requests.length, 3);
+    assert.deepEqual(JSON.parse(await readFile(credentialsPath, "utf8")), {
+      ...original,
+      accessToken: "rotated-access",
+      refreshToken: "rotated-refresh",
+    });
+    assert.equal((await stat(credentialsPath)).mode & 0o777, 0o600);
+  });
+});
+
+test("credential refresh errors redact every credential value", async () => {
+  const credentials = {
+    clientId: "visible-client-id",
+    clientSecret: "visible-client-secret",
+    accessToken: "visible-access-token",
+    refreshToken: "visible-refresh-token",
+  };
+  const client = new XPostClient({
+    endpoint: "https://api.x.com/2/tweets",
+    timeoutMs: 1_000,
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({ detail: Object.values(credentials).join(" ") }),
+        { status: 400 },
+      ),
+  });
+
+  await assert.rejects(client.refreshAccessToken(credentials), (error: unknown) => {
+    assert.ok(error instanceof XApiError);
+    for (const secret of Object.values(credentials)) {
+      assert.doesNotMatch(error.message, new RegExp(secret));
+    }
+    assert.match(error.message, /\[REDACTED\]/);
+    return true;
+  });
+});
+
+test("refresh keeps the existing refresh token when X does not rotate it", async () => {
+  await withTemporaryDirectory(async (directory) => {
+    const credentialsPath = join(directory, "x-oauth.json");
+    const credentials = {
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      accessToken: "expired-access",
+      refreshToken: "existing-refresh",
+    };
+    await writeFile(credentialsPath, JSON.stringify(credentials), { mode: 0o600 });
+    let calls = 0;
+    const fetchImpl: FetchLike = async () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      if (calls === 2) {
+        return new Response(JSON.stringify({ access_token: "new-access" }), { status: 200 });
+      }
+      return successfulResponse("post-with-unrotated-refresh");
+    };
+    const config = makeConfig(directory, { xCredentialsFile: credentialsPath });
+    const service = new QuotaResetService({
+      config,
+      xClient: new XPostClient({
+        endpoint: config.xEndpoint,
+        timeoutMs: config.requestTimeoutMs,
+        fetchImpl,
+      }),
+      random: () => 0,
+    });
+
+    const result = await service.handleQuotaSignal({ message: QUOTA_ERROR, model: "gpt-5.6-sol" });
+    assert.equal(result.status, "posted");
+    assert.deepEqual(JSON.parse(await readFile(credentialsPath, "utf8")), {
+      ...credentials,
+      accessToken: "new-access",
+    });
+    assert.equal(calls, 3);
+  });
+});
+
+test("a second create-post 401 is returned without another refresh or retry", async () => {
+  await withTemporaryDirectory(async (directory) => {
+    const credentialsPath = join(directory, "x-oauth.json");
+    await writeFile(
+      credentialsPath,
+      JSON.stringify({
+        clientId: "client-id",
+        clientSecret: "client-secret",
+        accessToken: "expired-access",
+        refreshToken: "refresh-token",
+      }),
+      { mode: 0o600 },
+    );
+    let calls = 0;
+    const fetchImpl: FetchLike = async () => {
+      calls += 1;
+      if (calls === 2) {
+        return new Response(
+          JSON.stringify({ access_token: "new-access", refresh_token: "new-refresh" }),
+          { status: 200 },
+        );
+      }
+      return new Response("unauthorized", { status: 401 });
+    };
+    const config = makeConfig(directory, { xCredentialsFile: credentialsPath });
+    const service = new QuotaResetService({
+      config,
+      xClient: new XPostClient({
+        endpoint: config.xEndpoint,
+        timeoutMs: config.requestTimeoutMs,
+        fetchImpl,
+      }),
+      random: () => 0,
+    });
+
+    const result = await service.handleQuotaSignal({ message: QUOTA_ERROR, model: "gpt-5.6-sol" });
+    assert.equal(result.status, "error");
+    assert.equal(calls, 3);
+  });
+});
+
+test("credential mode does not refresh or retry create-post outside HTTP 401", async () => {
+  for (const failure of ["network", "503"] as const) {
+    await withTemporaryDirectory(async (directory) => {
+      const credentialsPath = join(directory, "x-oauth.json");
+      await writeFile(
+        credentialsPath,
+        JSON.stringify({
+          clientId: "client-id",
+          clientSecret: "client-secret",
+          accessToken: "access-token",
+          refreshToken: "refresh-token",
+        }),
+        { mode: 0o600 },
+      );
+      let calls = 0;
+      const fetchImpl: FetchLike = async () => {
+        calls += 1;
+        if (failure === "network") {
+          throw new Error("connection reset");
+        }
+        return new Response(JSON.stringify({ detail: "unavailable" }), { status: 503 });
+      };
+      const config = makeConfig(directory, { xCredentialsFile: credentialsPath });
+      const service = new QuotaResetService({
+        config,
+        xClient: new XPostClient({
+          endpoint: config.xEndpoint,
+          timeoutMs: config.requestTimeoutMs,
+          fetchImpl,
+        }),
+        random: () => 0,
+      });
+
+      const result = await service.handleQuotaSignal({
+        message: QUOTA_ERROR,
+        model: "gpt-5.6-sol",
+      });
+      assert.equal(result.status, "error");
+      assert.equal(calls, 1, failure);
+    });
+  }
 });

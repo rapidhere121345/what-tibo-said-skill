@@ -13,7 +13,9 @@ Use the bundled MCP tools as follows:
 - Call `request_quota_reset` only for a direct manual request to ask for a reset.
 - Treat `WHAT_TIBO_SAID_LIVE=1` as standing authorization to publish a matching post. Any other value is dry-run mode.
 - Trust the tool's cooldown and deduplication result. Do not bypass it or retry a failed post automatically.
+- A single create-post retry after X rejects an expired token with HTTP 401 is credential renewal, not permission to retry timeouts, ambiguous failures, or any other status.
 - Include only a compact relative remaining-time estimate when the error provides a valid reset timestamp.
 - Public local context is limited to the verified GPT model slug and operating system/architecture.
+- End every generated post with the bundled inline what-tibo-said-skill attribution and its fixed GitHub repository URL; do not accept or add any other URL.
 - Never put an exact reset date or time, time zone, UTC/GMT offset, location, raw error text, host name, user name, paths, IP addresses, session identifiers, or access tokens into the public post.
 - Do not treat a plain HTTP 429, networking failure, server overload, or hypothetical quota discussion as account quota exhaustion.

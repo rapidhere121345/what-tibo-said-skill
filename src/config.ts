@@ -1,14 +1,28 @@
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 export interface AppConfig {
   live: boolean;
   xUserAccessToken?: string;
+  xCredentialsFile?: string;
   targetHandle: string;
   cooldownMs: number;
   stateDir: string;
   xEndpoint: string;
   requestTimeoutMs: number;
+}
+
+function resolveCredentialsFile(env: NodeJS.ProcessEnv): string | undefined {
+  const explicit = env.WHAT_TIBO_SAID_X_CREDENTIALS_FILE?.trim();
+  if (explicit) {
+    return resolve(explicit);
+  }
+
+  const xdgConfigHome = env.XDG_CONFIG_HOME?.trim();
+  const configHome = xdgConfigHome ? resolve(xdgConfigHome) : join(homedir(), ".config");
+  const defaultPath = join(configHome, "what-tibo-said", "x-oauth.json");
+  return existsSync(defaultPath) ? defaultPath : undefined;
 }
 
 const DEFAULT_COOLDOWN_HOURS = 24;
@@ -61,6 +75,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
   if (token) {
     config.xUserAccessToken = token;
+  }
+  const credentialsFile = resolveCredentialsFile(env);
+  if (credentialsFile) {
+    config.xCredentialsFile = credentialsFile;
   }
   return config;
 }
