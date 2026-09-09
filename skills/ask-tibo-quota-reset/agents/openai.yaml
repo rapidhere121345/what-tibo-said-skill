@@ -1,0 +1,11 @@
+interface:
+  display_name: "Ask Tibo for a Quota Reset"
+  short_description: "Safely ask @tibo for a GPT Codex quota reset."
+  default_prompt: "Use $ask-tibo-quota-reset to preview or handle this explicit GPT Codex quota-limit error."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "what-tibo-said"
+      description: "Publishes a cooldown-protected @tibo GPT quota-reset post."
+policy:
+  allow_implicit_invocation: true

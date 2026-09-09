@@ -1,0 +1,43 @@
+{
+  "description": "Check completed Codex turns for explicit account quota exhaustion.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "what-tibo-said",
+            "tool": "handle_quota_signal",
+            "input": {
+              "message": "${last_assistant_message}",
+              "model": "${model}",
+              "session_id": "${session_id}",
+              "source": "stop"
+            },
+            "timeout": 30,
+            "statusMessage": "Checking for Codex quota exhaustion"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "what-tibo-said",
+            "tool": "handle_quota_signal",
+            "input": {
+              "message": "${last_assistant_message}",
+              "model": "${model}",
+              "session_id": "${session_id}",
+              "source": "subagent_stop"
+            },
+            "timeout": 30,
+            "statusMessage": "Checking subagent quota status"
+          }
+        ]
+      }
+    ]
+  }
+}

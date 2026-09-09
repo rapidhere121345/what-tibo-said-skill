@@ -1,0 +1,27 @@
+{
+  "name": "what-tibo-said",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Codex plugin that asks @tibo for a GPT plan quota reset.",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "what-tibo-said-mcp": "./dist/mcp-server.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "tsx --test test/**/*.test.ts",
+    "check": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
