@@ -8,7 +8,7 @@ import { QuotaResetService } from "../src/service.js";
 
 const TEST_CONFIG: AppConfig = {
   live: false,
-  targetHandle: "tibo",
+  targetHandle: "thsottiaux",
   cooldownMs: 24 * 60 * 60 * 1000,
   stateDir: "/unused-in-dry-run",
   xEndpoint: "https://api.x.com/2/tweets",
@@ -54,7 +54,7 @@ test("MCP handshake exposes all tools and preview remains dry-run", async () => 
 
     const payload = JSON.parse(content.text) as { status?: string; text?: string };
     assert.equal(payload.status, "dry_run");
-    assert.match(payload.text ?? "", /^@tibo\b/);
+    assert.match(payload.text ?? "", /^@thsottiaux\b/);
     assert.match(payload.text ?? "", /Reset: 3d 8h left/);
     assert.match(payload.text ?? "", /gpt-5\.6-sol · linux\/x64/);
     assert.match(payload.text ?? "", /Sent by https:\/\/github\.com\//);

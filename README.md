@@ -1,7 +1,7 @@
 # What Tibo Said
 
 A local Codex plugin / skill / MCP. When it detects an explicit "GPT plan quota
-exhausted" message from Codex, it composes a playful X post mentioning `@tibo`
+exhausted" message from Codex, it composes a playful X post mentioning `@thsottiaux`
 that asks for a quota reset.
 
 Dry-run is the default: nothing is published until you explicitly set
@@ -19,7 +19,7 @@ Dry-run is the default: nothing is published until you explicitly set
   (English and Chinese wording). Ordinary HTTP 429s, transient rate limits,
   network failures, and general talk of "quota" are ignored.
 - Publishes a standalone new post; it never replies to other people's posts.
-- The post comes from a fixed set of built-in playful `@tibo` templates; the
+- The post comes from a fixed set of built-in playful `@thsottiaux` templates; the
   only dynamic parts are the optional context line and the fixed footer.
 - When a parseable reset time is available, only the relative remaining
   duration is shown (e.g. `Reset: 3d 8h left`), never an exact date or time.
@@ -36,7 +36,7 @@ Dry-run is the default: nothing is published until you explicitly set
 
 Example post:
 
-> @tibo my Codex quota just hit the wall. Any chance you can wave the reset wand? 🪄
+> @thsottiaux my Codex quota just hit the wall. Any chance you can wave the reset wand? 🪄
 > Reset: 3d 8h left · gpt-5.6-sol · linux/x64
 >
 > Sent by https://github.com/rapidhere121345/what-tibo-said-skill — triggered when Codex quota runs out.

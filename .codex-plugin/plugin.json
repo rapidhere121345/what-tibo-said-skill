@@ -1,14 +1,14 @@
 {
   "name": "what-tibo-said",
   "version": "0.1.0",
-  "description": "Detects explicit GPT-backed Codex quota exhaustion and asks @tibo for a reset on X.",
+  "description": "Detects explicit GPT-backed Codex quota exhaustion and asks @thsottiaux for a reset on X.",
   "author": {
     "name": "Local developer"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "What Tibo Said",
-    "shortDescription": "Ask @tibo for a GPT Codex quota reset.",
+    "shortDescription": "Ask @thsottiaux for a GPT Codex quota reset.",
     "longDescription": "Detects explicit gpt-* account usage-limit messages and publishes one cooldown-protected playful X post when live mode is enabled.",
     "developerName": "Local developer",
     "category": "Developer Tools",

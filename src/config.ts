@@ -66,7 +66,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const token = env.X_USER_ACCESS_TOKEN?.trim();
   const config: AppConfig = {
     live: env.WHAT_TIBO_SAID_LIVE === "1",
-    targetHandle: env.TIBO_X_HANDLE?.trim() || "tibo",
+    targetHandle: env.TIBO_X_HANDLE?.trim() || "thsottiaux",
     cooldownMs: parseCooldownHours(env.WHAT_TIBO_SAID_COOLDOWN_HOURS) * 60 * 60 * 1000,
     stateDir: resolveStateDir(env),
     xEndpoint: "https://api.x.com/2/tweets",

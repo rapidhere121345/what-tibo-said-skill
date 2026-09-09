@@ -1,6 +1,6 @@
 ---
 name: ask-tibo-quota-reset
-description: "Detect an explicit GPT-backed Codex account quota-exhaustion error, preview a playful X post mentioning @tibo, or publish one cooldown-protected reset request when live mode is enabled. Use only for verified gpt-* weekly or monthly usage limits, depleted credits, and direct manual reset requests; do not use for other model providers, generic HTTP 429 errors, transient rate limiting, or ordinary discussion about quotas."
+description: "Detect an explicit GPT-backed Codex account quota-exhaustion error, preview a playful X post mentioning @thsottiaux, or publish one cooldown-protected reset request when live mode is enabled. Use only for verified gpt-* weekly or monthly usage limits, depleted credits, and direct manual reset requests; do not use for other model providers, generic HTTP 429 errors, transient rate limiting, or ordinary discussion about quotas."
 ---
 
 # Ask Tibo Quota Reset

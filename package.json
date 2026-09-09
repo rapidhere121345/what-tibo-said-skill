@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Codex plugin that asks @tibo for a GPT plan quota reset.",
+  "description": "Codex plugin that asks @thsottiaux for a GPT plan quota reset.",
   "engines": {
     "node": ">=22"
   },

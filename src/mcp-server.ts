@@ -65,7 +65,7 @@ export function createMcpServer(service = new QuotaResetService({ config: loadCo
     {
       title: "Preview Tibo quota-reset post",
       description:
-        "Preview the playful @tibo post without publishing it. Supplied non-GPT models and non-quota errors are ignored.",
+        "Preview the playful @thsottiaux post without publishing it. Supplied non-GPT models and non-quota errors are ignored.",
       inputSchema: { ...signalShape, model: requiredGptModel },
       annotations: {
         readOnlyHint: true,
@@ -82,7 +82,7 @@ export function createMcpServer(service = new QuotaResetService({ config: loadCo
     {
       title: "Handle a Codex quota signal",
       description:
-        "Detect an explicit gpt-* account usage-limit error and publish one cooldown-protected @tibo post when live mode is enabled.",
+        "Detect an explicit gpt-* account usage-limit error and publish one cooldown-protected @thsottiaux post when live mode is enabled.",
       inputSchema: { ...signalShape, model: requiredGptModel },
       annotations: {
         readOnlyHint: false,
@@ -99,7 +99,7 @@ export function createMcpServer(service = new QuotaResetService({ config: loadCo
     {
       title: "Request a Codex quota reset from Tibo",
       description:
-        "Manually request a cooldown-protected @tibo GPT quota-reset post. Publishing still requires live mode.",
+        "Manually request a cooldown-protected @thsottiaux GPT quota-reset post. Publishing still requires live mode.",
       inputSchema: {
         model: requiredGptModel,
         reset_at: signalShape.reset_at,

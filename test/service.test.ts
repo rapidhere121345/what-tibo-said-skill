@@ -26,7 +26,7 @@ function makeConfig(stateDir: string, overrides: Partial<AppConfig> = {}): AppCo
   return {
     live: true,
     xUserAccessToken: "test-secret-token",
-    targetHandle: "tibo",
+    targetHandle: "thsottiaux",
     cooldownMs: 24 * 60 * 60 * 1000,
     stateDir,
     xEndpoint: "https://api.x.com/2/tweets",
@@ -37,7 +37,7 @@ function makeConfig(stateDir: string, overrides: Partial<AppConfig> = {}): AppCo
 
 function successfulResponse(
   id = "123",
-  text = "@tibo my Codex quota just hit the wall. Any chance you can wave the reset wand? 🪄",
+  text = "@thsottiaux my Codex quota just hit the wall. Any chance you can wave the reset wand? 🪄",
 ): Response {
   return new Response(
     JSON.stringify({
@@ -81,7 +81,7 @@ test("dry-run never calls X and still previews the post", async () => {
       model: "gpt-5.6-sol",
     });
     assert.equal(result.status, "dry_run");
-    assert.match(result.text ?? "", /^@tibo\b/);
+    assert.match(result.text ?? "", /^@thsottiaux\b/);
     assert.match(result.text ?? "", /Reset: 4d 8h left/);
     assert.match(result.text ?? "", /gpt-5\.6-sol · linux\/x64/);
     assert.equal(calls, 0);
@@ -157,7 +157,7 @@ test("live mode publishes once and persists the successful cooldown", async () =
         "Bearer test-secret-token",
       );
       const payload = JSON.parse(String(init?.body)) as { text?: string };
-      assert.match(payload.text ?? "", /^@tibo\b/);
+      assert.match(payload.text ?? "", /^@thsottiaux\b/);
       assert.match(payload.text ?? "", /Reset: 4d 8h left/);
       assert.match(payload.text ?? "", /gpt-5\.6-sol · linux\/x64/);
       assert.match(payload.text ?? "", /Sent by https:\/\/github\.com\//);
@@ -311,7 +311,7 @@ test("X client redacts credentials and exposes rate-limit reset", async () => {
   });
 
   await assert.rejects(
-    client.createPost("@tibo hello", token),
+    client.createPost("@thsottiaux hello", token),
     (error: unknown) => {
       assert.ok(error instanceof XApiError);
       assert.equal(error.status, 429);

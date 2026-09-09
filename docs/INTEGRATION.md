@@ -3,7 +3,7 @@
 This repo is a local Codex plugin source root containing an stdio MCP server, a
 skill, and lifecycle hooks. It detects explicit GPT-backed Codex quota
 exhaustion and (only in live mode) publishes one playful X post mentioning
-`@tibo`. Verified against Codex CLI 0.151.0 and this repository's code.
+`@thsottiaux`. Verified against Codex CLI 0.151.0 and this repository's code.
 
 ## 1. Clone and build
 

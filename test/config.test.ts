@@ -7,6 +7,10 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 import { loadConfig } from "../src/config.js";
 
+test("defaults to Tibo's current X handle", () => {
+  assert.equal(loadConfig({}).targetHandle, "thsottiaux");
+});
+
 test("credentials-file environment override is trimmed and resolved", () => {
   const config = loadConfig({
     WHAT_TIBO_SAID_X_CREDENTIALS_FILE: "  ./private/x-oauth.json  ",
